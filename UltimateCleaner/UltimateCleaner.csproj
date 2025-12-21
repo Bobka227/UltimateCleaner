@@ -8,4 +8,14 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Remove="Scripts\AnalyzeDisk.ps1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Scripts\AnalyzeDisk.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
