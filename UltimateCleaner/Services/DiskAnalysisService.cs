@@ -15,13 +15,13 @@ public class DiskAnalysisService
         if (!File.Exists(ps1))
             throw new FileNotFoundException("Не найден скрипт AnalyzeDisk.ps1 в папке Scripts рядом с приложением.", ps1);
 
-        var args = new[]
+        var parameters = new Dictionary<string, object?>
         {
-            "-DriveRoot", driveRoot,
-            "-Top", top.ToString()
+            ["DriveRoot"] = driveRoot,
+            ["Top"] = top
         };
 
-        var (stdout, stderr, exitCode) = await _runner.RunFileAsync(ps1, args, ct);
+        var (stdout, stderr, exitCode) = await _runner.RunFileAsync(ps1, parameters, ct);
 
         if (exitCode != 0)
             throw new InvalidOperationException($"PowerShell завершился с кодом {exitCode}.\n{stderr}");
@@ -29,9 +29,6 @@ public class DiskAnalysisService
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var result = JsonSerializer.Deserialize<DiskAnalysisResult>(stdout, options);
 
-        if (result == null)
-            throw new InvalidOperationException("Не удалось распарсить JSON от PowerShell.");
-
-        return result;
+        return result ?? throw new InvalidOperationException("Не удалось распарсить JSON от PowerShell.");
     }
 }

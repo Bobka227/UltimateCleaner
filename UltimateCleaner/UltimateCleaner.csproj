@@ -11,6 +11,7 @@
   <ItemGroup>
     <None Remove="Scripts\AnalyzeDisk.ps1" />
     <None Remove="Scripts\CleanTemp.ps1" />
+    <None Remove="Scripts\StartComponentCleanup.ps1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +21,13 @@
     <Content Include="Scripts\CleanTemp.ps1">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Scripts\StartComponentCleanup.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
   </ItemGroup>
 
 </Project>

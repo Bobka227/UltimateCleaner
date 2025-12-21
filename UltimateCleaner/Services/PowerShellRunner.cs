@@ -1,5 +1,7 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Management.Automation;
 
 namespace MemoryCleaner.Services;
 
@@ -7,41 +9,34 @@ public class PowerShellRunner
 {
     public async Task<(string stdout, string stderr, int exitCode)> RunFileAsync(
         string ps1Path,
-        IEnumerable<string> args,
+        IDictionary<string, object?> parameters,
         CancellationToken ct)
     {
-        var psi = new ProcessStartInfo
+        if (!File.Exists(ps1Path))
+            throw new FileNotFoundException("Не найден PowerShell-скрипт.", ps1Path);
+
+        return await Task.Run(() =>
         {
-            FileName = "powershell.exe",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            using var ps = PowerShell.Create();
 
-        psi.ArgumentList.Add("-NoProfile");
-        psi.ArgumentList.Add("-ExecutionPolicy");
-        psi.ArgumentList.Add("Bypass");
-        psi.ArgumentList.Add("-File");
-        psi.ArgumentList.Add(ps1Path);
+            var scriptText = File.ReadAllText(ps1Path);
+            ps.AddScript(scriptText, useLocalScope: true);
 
-        foreach (var a in args)
-            psi.ArgumentList.Add(a);
+            foreach (var p in parameters)
+                ps.AddParameter(p.Key, p.Value);
 
-        using var p = new Process { StartInfo = psi };
+            using var reg = ct.Register(() =>
+            {
+                try { ps.Stop(); } catch { }
+            });
 
-        var outSb = new StringBuilder();
-        var errSb = new StringBuilder();
+            Collection<PSObject> results = ps.Invoke();
 
-        p.OutputDataReceived += (_, e) => { if (e.Data != null) outSb.AppendLine(e.Data); };
-        p.ErrorDataReceived += (_, e) => { if (e.Data != null) errSb.AppendLine(e.Data); };
+            var stdout = string.Join(Environment.NewLine, results.Select(r => r?.ToString() ?? ""));
+            var stderr = string.Join(Environment.NewLine, ps.Streams.Error.Select(e => e.ToString()));
+            var exitCode = ps.HadErrors ? 1 : 0;
 
-        p.Start();
-        p.BeginOutputReadLine();
-        p.BeginErrorReadLine();
-
-        await p.WaitForExitAsync(ct);
-
-        return (outSb.ToString(), errSb.ToString(), p.ExitCode);
+            return (stdout, stderr, exitCode);
+        }, ct);
     }
 }

@@ -2,6 +2,8 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using MemoryCleaner.Infrastructure;
 using MemoryCleaner.Models;
 using MemoryCleaner.Services;
@@ -12,13 +14,14 @@ public class MainViewModel : ObservableObject
 {
     private readonly DiskAnalysisService _analysisService = new();
     private readonly CleanupService _cleanupService = new();
+    private readonly DismService _dismService = new();
 
     private CancellationTokenSource? _cts;
 
     public ObservableCollection<string> Drives { get; } = new();
     public ObservableCollection<FolderSizeInfo> TopFolders { get; } = new();
 
-    // ---- Units ----
+    // ---------- Units ----------
     private SizeUnit _selectedUnit = SizeUnit.GB;
     public SizeUnit SelectedUnit
     {
@@ -26,16 +29,13 @@ public class MainViewModel : ObservableObject
         set
         {
             if (Set(ref _selectedUnit, value))
-            {
-                // обновить summary + таблицу (таблица обновится через MultiBinding автоматически)
                 RaisePropertyChanged(nameof(DiskSummary));
-            }
         }
     }
 
     public Array Units => Enum.GetValues(typeof(SizeUnit));
 
-    // ---- Drive selection ----
+    // ---------- Drive selection ----------
     private string? _selectedDrive;
     public string? SelectedDrive
     {
@@ -47,7 +47,7 @@ public class MainViewModel : ObservableObject
         }
     }
 
-    // ---- Disk info ----
+    // ---------- Disk info ----------
     private DiskInfo? _disk;
     public DiskInfo? Disk
     {
@@ -72,7 +72,22 @@ public class MainViewModel : ObservableObject
         _ => $"{bytes:N0} B"
     };
 
-    // ---- State ----
+    // ---------- DISM ----------
+    private bool _dismResetBase;
+    public bool DismResetBase
+    {
+        get => _dismResetBase;
+        set => Set(ref _dismResetBase, value);
+    }
+
+    private string _dismLog = "";
+    public string DismLog
+    {
+        get => _dismLog;
+        set => Set(ref _dismLog, value);
+    }
+
+    // ---------- State ----------
     private bool _isBusy;
     public bool IsBusy
     {
@@ -85,6 +100,7 @@ public class MainViewModel : ObservableObject
                 CancelCommand.RaiseCanExecuteChanged();
                 CleanUserTempCommand.RaiseCanExecuteChanged();
                 CleanWindowsTempCommand.RaiseCanExecuteChanged();
+                DismCleanupCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -103,11 +119,12 @@ public class MainViewModel : ObservableObject
         set => Set(ref _topN, value);
     }
 
-    // ---- Commands ----
+    // ---------- Commands ----------
     public AsyncRelayCommand AnalyzeCommand { get; }
     public RelayCommand CancelCommand { get; }
     public AsyncRelayCommand CleanUserTempCommand { get; }
     public AsyncRelayCommand CleanWindowsTempCommand { get; }
+    public AsyncRelayCommand DismCleanupCommand { get; }
 
     public MainViewModel()
     {
@@ -116,6 +133,8 @@ public class MainViewModel : ObservableObject
 
         CleanUserTempCommand = new AsyncRelayCommand(() => CleanTempAsync("User"), () => !IsBusy);
         CleanWindowsTempCommand = new AsyncRelayCommand(() => CleanTempAsync("Windows"), () => !IsBusy);
+
+        DismCleanupCommand = new AsyncRelayCommand(DismCleanupAsync, () => !IsBusy);
 
         LoadDrives();
         SelectedDrive = Drives.FirstOrDefault();
@@ -132,6 +151,7 @@ public class MainViewModel : ObservableObject
         AnalyzeCommand.RaiseCanExecuteChanged();
     }
 
+    // ---------- Analyze ----------
     private async Task AnalyzeAsync()
     {
         if (!CanAnalyze()) return;
@@ -169,6 +189,7 @@ public class MainViewModel : ObservableObject
         }
     }
 
+    // ---------- Clean TEMP ----------
     private async Task CleanTempAsync(string mode)
     {
         IsBusy = true;
@@ -177,8 +198,58 @@ public class MainViewModel : ObservableObject
         _cts = new CancellationTokenSource();
         try
         {
-            var message = await _cleanupService.CleanTempAsync(mode, _cts.Token);
-            Status = message;
+            // Если CleanupService возвращает строку:
+            // var message = await _cleanupService.CleanTempAsync(mode, _cts.Token);
+            // Status = message;
+
+            // Если CleanupService возвращает CleanTempResult (рекомендую):
+            var res = await _cleanupService.CleanTempAsync(mode, _cts.Token);
+            Status = $"{res.Message} Удалено: {res.Deleted}, Ошибок: {res.Failed}";
+        }
+        catch (OperationCanceledException)
+        {
+            Status = "Отменено.";
+        }
+        catch (Exception ex)
+        {
+            Status = "Ошибка: " + ex.Message;
+        }
+        finally
+        {
+            _cts?.Dispose();
+            _cts = null;
+            IsBusy = false;
+        }
+    }
+
+    // ---------- DISM ----------
+    private async Task DismCleanupAsync()
+    {
+        IsBusy = true;
+        Status = "DISM: StartComponentCleanup...";
+        DismLog = "";
+
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var res = await _dismService.StartComponentCleanupAsync(DismResetBase, _cts.Token);
+
+            if (res.NeedsAdmin)
+            {
+                Status = "Нужны права администратора. Запусти приложение от администратора.";
+            }
+            else
+            {
+                Status = res.Message;
+            }
+
+            DismLog =
+                $"Command: {res.Args}\n" +
+                $"Ok: {res.Ok}\n" +
+                $"NeedsAdmin: {res.NeedsAdmin}\n" +
+                $"ExitCode: {res.ExitCode}\n\n" +
+                (string.IsNullOrWhiteSpace(res.Stdout) ? "" : $"STDOUT:\n{res.Stdout}\n\n") +
+                (string.IsNullOrWhiteSpace(res.Stderr) ? "" : $"STDERR:\n{res.Stderr}\n");
         }
         catch (OperationCanceledException)
         {
