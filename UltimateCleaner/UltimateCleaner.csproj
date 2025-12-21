@@ -10,10 +10,14 @@
 
   <ItemGroup>
     <None Remove="Scripts\AnalyzeDisk.ps1" />
+    <None Remove="Scripts\CleanTemp.ps1" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Scripts\AnalyzeDisk.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Scripts\CleanTemp.ps1">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
