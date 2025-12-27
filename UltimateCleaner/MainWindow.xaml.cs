@@ -1,5 +1,6 @@
-﻿using System.Windows;
-using MemoryCleaner.ViewModels;
+﻿using MemoryCleaner.ViewModels;
+using System.Windows;
+using Wpf.Ui.Controls;
 
 namespace MemoryCleaner;
 

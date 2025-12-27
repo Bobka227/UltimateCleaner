@@ -5,14 +5,11 @@
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
 
-# Собираем аргументы DISM
 $args = @("/Online", "/Cleanup-Image", "/StartComponentCleanup")
 if ($ResetBase) {
-  # Делает очистку более "жёсткой": удаляет возможность отката обновлений
   $args += "/ResetBase"
 }
 
-# Проверяем админ-права (чтобы вернуть понятную ошибку заранее)
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
@@ -27,7 +24,6 @@ if (-not $isAdmin) {
   exit 0
 }
 
-# Запуск DISM через Start-Process и сбор stdout/stderr в файлы
 $tmpOut = [System.IO.Path]::GetTempFileName()
 $tmpErr = [System.IO.Path]::GetTempFileName()
 

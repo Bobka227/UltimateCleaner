@@ -7,8 +7,9 @@ public abstract class ObservableObject : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    protected void RaisePropertyChanged([CallerMemberName] string? prop = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+    protected void RaisePropertyChanged(string? prop = null)
+    => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(prop));
+
 
     protected bool Set<T>(ref T field, T value, [CallerMemberName] string? prop = null)
     {

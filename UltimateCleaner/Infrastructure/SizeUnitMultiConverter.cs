@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
 using MemoryCleaner.Models;
 
@@ -7,13 +6,15 @@ namespace MemoryCleaner.Infrastructure;
 
 public class SizeUnitMultiConverter : IMultiValueConverter
 {
-  
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
         if (values.Length < 2) return "";
 
-        if (values[0] is not long bytes) return "";
-        if (values[1] is not SizeUnit unit) unit = SizeUnit.Bytes;
+        var bytes = values[0] is long b ? b : 0;
+        var unit = values[1] is SizeUnit u ? u : SizeUnit.GB;
+
+        if (values.Length >= 3 && values[2] is bool isDir && isDir)
+            return "<DIR>";
 
         return unit switch
         {

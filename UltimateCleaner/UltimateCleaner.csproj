@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
+    <PackageReference Include="WPF-UI" Version="4.1.0" />
   </ItemGroup>
 
 </Project>
